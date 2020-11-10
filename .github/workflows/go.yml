@@ -1,0 +1,64 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  build_service:
+    name: Build service
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.15
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Get api service dependencies
+      run:  |
+        go get -v -t -d ./...
+        if [ -f Gopkg.toml ]; then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+        fi
+
+    - name: Build api service
+      run:  | 
+        go build --ldflags="-w -s" -o "./xyz/ses/ses"
+
+    - name: Deploy to Server
+      # 服务地址: https://github.com/AEnterprise/rsync-deploy
+      uses: AEnterprise/rsync-deploy@v1.0
+      env:
+        DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        ARGS: -avz
+        SERVER_PORT: ${{ secrets.SSH_PORT }}
+        FOLDER: ./xyz.ses
+        SERVER_IP: ${{ secrets.SSH_HOST }}
+        USERNAME: ${{ secrets.SSH_USERNAME }}
+        SERVER_DESTINATION: ${{ secrets.SERVER_DESTINATION }}
+
+    - name: Restart Server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        script: |
+          cd ${{ secrets.SERVER_DESTINATION }}
+          systemctl ses stop
+          mv xyz.ses/ses {{ secrets.SERVER_LOCAL_BIN }}
+          mv xyz.ses/ses.service {{ secrets.SERVER_LOCAL_SYSTEMD }}
+          rm -rf xyz.ses
+          systemctl daemon-reload
+          systemctl enable ses
+          systemctl ses start
