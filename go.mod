@@ -1,4 +1,4 @@
-module mail.whoam.xyz
+module ses.whoam.xyz
 
 go 1.15
 
