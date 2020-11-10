@@ -32,7 +32,7 @@ jobs:
 
     - name: Build api service
       run:  | 
-        go build --ldflags="-w -s" -o "./xyz/ses/ses"
+        go build --ldflags="-w -s" -o "./xyz.ses/ses"
 
     - name: Deploy to Server
       # 服务地址: https://github.com/AEnterprise/rsync-deploy
