@@ -8,8 +8,8 @@ User=root
 Group=root
 
 GuessMainPID=yes
-ExecStart=ses
-ExecReload=ses
+ExecStart=/usr/local/bin/ses
+ExecReload=/usr/local/bin/ses
 ExecReload=/bin/kill -s QUIT $MAINPID
 ExecStop=/bin/kill -s QUIT $MAINPID
 RemainAfterExit=yes
