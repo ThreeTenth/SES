@@ -56,8 +56,8 @@ jobs:
         script: |
           cd ${{ secrets.SERVER_DESTINATION }}
           systemctl ses stop
-          mv xyz.ses/ses {{ secrets.SERVER_LOCAL_BIN }}
-          mv xyz.ses/ses.service {{ secrets.SERVER_LOCAL_SYSTEMD }}
+          mv xyz.ses/ses /usr/local/bin
+          mv xyz.ses/ses.service /lib/systemd/system
           rm -rf xyz.ses
           systemctl daemon-reload
           systemctl enable ses
