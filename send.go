@@ -20,13 +20,12 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-var userName, password string
-
+var auth _PlainAuth
 var proxyAddress, smtpAddress string
 
 type _PlainAuth struct {
-	identity, username, password string
-	host                         string
+	identity, username, nickname, password string
+	host                                   string
 }
 
 // Start 开始
@@ -51,9 +50,9 @@ func baseEncode(s string) string {
 	return fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(s)))
 }
 
-func plainAuth(identity, username, password string, host string) smtp.Auth {
-	return &_PlainAuth{identity, username, password, host}
-}
+// func plainAuth(identity, username, password string, host string) smtp.Auth {
+// 	return &_PlainAuth{identity, username, password, host}
+// }
 
 func init() {
 	flag.StringVar(&proxyAddress, "proxy", "", "Send mail (SMTP) server proxy address")
@@ -61,33 +60,50 @@ func init() {
 }
 
 // SetupMailCredentials 设置邮箱信息
-func SetupMailCredentials(enterUsernameTip, enterPasswordTip string) {
+func SetupMailCredentials(enterUsernameTip, enterNicknameTip, enterPasswordTip string) {
+	flag.Parse()
+	flag.Usage()
+
+	if "" != proxyAddress {
+		fmt.Println("Proxy address: ", proxyAddress)
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print(enterUsernameTip)
-	userName, _ = reader.ReadString('\n')
+	username, err := reader.ReadString('\n')
+
+	if err != nil {
+		panic(err)
+	}
+
+	if "" == username {
+		panic("Error: Can't empty")
+	}
+
+	fmt.Print(enterNicknameTip)
+	nickname, _ := reader.ReadString('\n')
 
 	fmt.Print(enterPasswordTip)
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 
-	fmt.Println("")
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	password = string(bytePassword)
-	userName = strings.TrimSpace(userName)
 
-	// fmt.Println(userName, password, proxyAddress, smtpAddress)
+	if 0 == len(bytePassword) {
+		panic("Error: Can't empty")
+	}
+
+	auth.username = strings.Trim(username, "\r\n")
+	auth.nickname = strings.Trim(nickname, "\r\n")
+	auth.password = strings.Trim(string(bytePassword), "\r\n")
+
+	fmt.Println(auth.username, auth.nickname, auth.password, proxyAddress, smtpAddress)
 }
 
 // SendMail 发送短信
 func SendMail(to string, subjcet string, body string) error {
-	if "" == userName {
-		return errors.New("userName is empty")
-	} else if "" == password {
-		return errors.New("password is empty")
-	}
-
 	var c *smtp.Client
 	var err error
 
@@ -129,13 +145,14 @@ func SendMail(to string, subjcet string, body string) error {
 		c.StartTLS(&tls.Config{ServerName: spli[0]})
 	}
 
-	auth := plainAuth("", userName, password, host)
-	if err = c.Auth(auth); err != nil {
+	// auth := plainAuth("", auth.username, auth.password, host)
+	auth.host = host
+	if err = c.Auth(&auth); err != nil {
 		return err
 	}
 
 	// 设置发件人
-	if err := c.Mail(userName); err != nil {
+	if err := c.Mail(auth.username); err != nil {
 		return err
 	}
 
@@ -156,7 +173,7 @@ func SendMail(to string, subjcet string, body string) error {
 	headers := map[string]string{}
 	headers["Subject"] = baseEncode(subjcet)
 	headers["To"] = to
-	headers["From"] = userName
+	headers["From"] = auth.nickname + " <" + auth.username + ">"
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
 	headers["Message-ID"] = fmt.Sprintf("<%f.%d@%s>", rand.Float64(), time.Now().UnixNano(), hostname)
